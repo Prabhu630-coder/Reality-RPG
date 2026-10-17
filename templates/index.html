@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#05051a">
+  <meta name="color-scheme" content="dark">
+  <title>Reality RPG — Level Up IRL</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+<header class="topbar">
+  <a class="brand" href="/"><span class="brand-mark">R</span><span>REALITY<span class="brand-accent">RPG</span><small>LEVEL UP IRL</small></span></a>
+  <div class="top-right"><span class="live-dot"></span><span class="mono">CAMPAIGN ACTIVE</span><button class="icon-btn" onclick="openModal('settings-modal')" aria-label="Open settings">⚙</button><form method="post" action="{{ url_for('logout') }}"><button class="logout-btn" title="Log out">↪ <span>LOGOUT</span></button></form></div>
+</header>
+<main class="shell">
+  <section class="hero">
+    <div><div class="eyebrow"><span class="slash">//</span> PLAYER PROFILE · {% if d.settings.hero_name %}{{ d.settings.hero_name|upper }} · {% endif %}{{ today|upper }}</div>
+      <h1>Make your <span>real life</span><br>the main quest.</h1>
+      <p class="hero-copy">Small wins. Real evidence. Actual progress. Complete quests, log proof of work, and watch your character level up.</p>
+    </div>
+    <div class="hero-emblem {% if d.settings.profile_photo %}has-photo{% endif %}">
+      {% if d.settings.profile_photo %}<img src="{{ d.settings.profile_photo }}" alt="Player profile photo" class="profile-photo">{% else %}<div class="emblem-ring"><span>✦</span></div><div class="emblem-label">PLAYER<br>CHARACTER</div>{% endif %}
+    </div>
+  </section>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}<div class="flash-stack">{% for category, message in messages %}<div class="flash {{ category }}">{{ message }}<button onclick="this.parentElement.remove()">×</button></div>{% endfor %}</div>{% endif %}
+  {% endwith %}
+
+  <section class="overview-grid">
+    <article class="panel level-panel">
+      <div class="panel-head"><span class="eyebrow">CURRENT STATUS</span><span class="rank-pill">✦ PLAYER</span></div>
+      <div class="level-row"><div><div class="level-label">LEVEL</div><div class="level-number">{{ "%02d"|format(d.level) }}</div></div><div class="xp-total"><strong>{{ d.total_xp }}</strong><span>TOTAL XP</span></div></div>
+      <div class="progress-meta"><span>LEVEL PROGRESS</span><span>{{ d.progress }}%</span></div>
+      <div class="progress-track"><div class="progress-fill" style="width:{{ d.progress }}%"></div></div>
+      <div class="level-foot"><span>{{ d.xp_into_level }} / {{ d.xp_needed }} XP</span><span>Next level <b>→</b></span></div>
+    </article>
+    <article class="panel stats-panel">
+      <div class="panel-head"><span class="eyebrow">CHARACTER ATTRIBUTES</span><span class="muted mono">{{ d.attrs|length }} ATTRIBUTES</span></div>
+      {% set icons = {'Coding':'⌘','Strength':'ϟ','Discipline':'◈','Knowledge':'✧','Mental Health':'☼','Self Building':'♧','Daily Chores':'⌂'} %}
+      {% for attr, score in d.attrs.items() %}
+      <div class="stat-row"><div class="stat-icon">{{ icons.get(attr, "✦") }}</div><div class="stat-main"><div class="stat-name"><span>{{ attr }}</span><span class="mono">{{ score }}/100</span></div><div class="stat-track"><div class="stat-fill fill-{{ ((loop.index - 1) % 7) + 1 }}" style="width:{{ score }}%"></div></div></div></div>
+      {% endfor %}
+      <div class="stat-note">Attributes grow every time you clear a related quest.</div>
+    </article>
+  </section>
+
+
+  <section id="mindset" class="feature-section">
+    <div class="section-heading"><div><div class="eyebrow"><span class="slash">//</span> DAILY MINDSET</div><h2>Thought of the day</h2></div><span class="section-aside mono">YOUR WORDS · YOUR RESET</span></div>
+    <article class="panel daily-thought">
+      <div class="thought-label"><span>✦</span> TODAY'S THOUGHT</div>
+      {% if d.daily_thought %}
+      <blockquote>“{{ d.daily_thought.text }}”</blockquote>
+      <div class="thought-actions">
+        <form method="post" action="{{ url_for('favorite_thought', thought_id=d.daily_thought.id) }}"><button class="secondary-btn">{{ '★ Favorited' if d.daily_thought.is_favorite else '☆ Favorite' }}</button></form>
+        <form method="post" action="{{ url_for('next_thought') }}"><button class="secondary-btn">↻ Mental reset</button></form>
+      </div>
+      {% endif %}
+    </article>
+    <article class="panel thought-library">
+      <div class="panel-head"><span class="eyebrow">YOUR THOUGHT LIBRARY</span><span class="evidence-count">{{ d.all_thoughts|length }} THOUGHTS · {{ d.favorite_thoughts|length }} FAVORITES</span></div>
+      <form method="post" action="{{ url_for('add_thought') }}" class="thought-add">
+        <input name="text" maxlength="300" placeholder="Write a line you want your future self to remember…" required>
+        <button class="primary-btn">＋ Add</button>
+      </form>
+      <div class="thought-list">
+        {% for t in d.all_thoughts %}
+        <div class="thought-row">
+          <span>{{ t.text }}</span>
+          <div class="thought-row-actions">
+            <form method="post" action="{{ url_for('favorite_thought', thought_id=t.id) }}"><button class="mini-action" title="Favorite">{{ '★' if t.is_favorite else '☆' }}</button></form>
+            <form method="post" action="{{ url_for('delete_thought', thought_id=t.id) }}" onsubmit="return confirm('Remove this thought?')"><button class="mini-action delete-mini" title="Delete">×</button></form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+
+  <section class="section-heading"><div><div class="eyebrow"><span class="slash">//</span> YOUR CAMPAIGN</div><h2>Daily quests <span class="count-badge">{{ d.quests|length }}</span></h2></div><button class="primary-btn" type="button" onclick="openModal('quest-modal')"><span>＋</span> New quest</button></section>
+
+  <section class="quest-layout">
+    <div class="quest-list">
+      {% for q in d.quests %}
+      <article class="quest-card {% if q.completed %}quest-done{% endif %}">
+        <div class="quest-check {% if q.completed %}checked{% endif %}">{% if q.completed %}✓{% else %}{{ "%02d"|format(loop.index) }}{% endif %}</div>
+        <div class="quest-info"><div class="quest-title">{{ q.title }}</div><div class="quest-tags"><span class="tag tag-{{ q.attribute|lower|replace(' ', '-') }}">{{ q.attribute }}</span><span class="tag tag-muted">{{ q.evidence_type|upper }}{% if q.evidence_type != 'manual' %} EVIDENCE{% endif %}</span></div>
+          {% if q.completed %}<div class="completed-label">✓ CLEARED {% if q.completed_at %}· {{ q.completed_at[:16].replace('T',' ') }}{% endif %}</div>{% endif %}
+        </div>
+        <div class="quest-reward"><strong>+{{ q.xp }}</strong><span>XP</span></div>
+        <div class="quest-actions">
+          {% if not q.completed and q.evidence_type == 'manual' %}<form method="post" action="{{ url_for('complete_quest', quest_id=q.id) }}"><button class="complete-btn" title="Complete quest">✓</button></form>
+          {% elif not q.completed %}<button class="complete-btn locked" title="Record evidence below" onclick="document.getElementById('evidence-hub').scrollIntoView({behavior:'smooth'})">↗</button>
+          {% else %}<span class="done-stamp">DONE</span>{% endif %}
+          {% if not q.completed %}<form method="post" action="{{ url_for('delete_quest', quest_id=q.id) }}" onsubmit="return confirm('Remove this quest?')"><button class="delete-btn" title="Delete quest">×</button></form>{% endif %}
+        </div>
+      </article>
+      {% else %}<div class="empty-state">No quests yet. Hit “New quest” and start your campaign.</div>{% endfor %}
+    </div>
+    <aside class="side-stack">
+      <article class="panel mini-panel"><div class="mini-icon">⚡</div><div><div class="mini-value">{{ d.completed_today }}</div><div class="mini-label">QUESTS CLEARED TODAY</div></div><div class="mini-line"></div></article>
+      <article class="panel quote-panel"><span class="quote-mark">“</span><p>You don't need a perfect day. You need one real win, then another.</p><span class="mono">— YOUR FUTURE SELF</span></article>
+      <article class="panel evidence-summary"><div class="panel-head"><span class="eyebrow">EVIDENCE LOG</span><span class="evidence-count">{{ d.evidence_count }} RECORDS</span></div><p>Progress is more than a button click. Log the work, then claim the reward.</p><button class="secondary-btn" onclick="document.getElementById('evidence-hub').scrollIntoView({behavior:'smooth'})">Open evidence hub <span>↘</span></button></article>
+    </aside>
+  </section>
+
+
+  <section id="coding-hub" class="feature-section">
+    <div class="section-heading"><div><div class="eyebrow"><span class="slash">//</span> DEVELOPER PROGRESS</div><h2>Coding practice vault</h2></div><span class="section-aside mono">NO GITHUB COMMIT REQUIRED</span></div>
+    <div class="coding-stats">
+      <article class="panel coding-stat"><strong>{{ d.coding.total }}</strong><span>PRACTICE LOGS</span></article>
+      <article class="panel coding-stat"><strong>{{ d.coding.minutes }}</strong><span>TOTAL MINUTES</span></article>
+      <article class="panel coding-stat"><strong>{{ d.coding.languages }}</strong><span>LANGUAGES</span></article>
+      <article class="panel coding-stat"><strong>{{ d.coding.week }}</strong><span>LAST 7 DAYS</span></article>
+    </div>
+    <div class="coding-layout">
+      <article class="panel coding-logger">
+        <div class="panel-head"><span class="eyebrow">PRACTICE LOGGER</span><span class="tag">LOCAL-FIRST</span></div>
+        <p class="coding-copy">Log the small exercises that don't deserve a GitHub commit. Save your solution here and build a real developer history.</p>
+        <form method="post" action="{{ url_for('coding_log') }}" class="form-stack">
+          <div class="two-fields"><label>Language<input name="language" placeholder="C / Python / Java" maxlength="40" required></label><label>Time (min)<input type="number" name="minutes" min="0" max="1440" placeholder="30" required></label></div>
+          <label>Problem / exercise<input name="problem" placeholder="e.g. Prime number checker" maxlength="160" required></label>
+          <label>Topic <span class="optional">(optional)</span><input name="topic" placeholder="Loops, arrays, functions…" maxlength="100"></label>
+          <label>Paste your solution <span class="optional">(saved locally in the app)</span><textarea name="code" rows="8" placeholder="// Your practice code…"></textarea></label>
+          <label>Notes <span class="optional">(optional)</span><textarea name="notes" rows="3" placeholder="What did you learn? What was difficult?"></textarea></label>
+          <label class="check-line"><input type="checkbox" name="independent"> I solved this independently</label>
+          <button class="primary-btn full">Save practice <span>↗</span></button>
+        </form>
+      </article>
+      <article class="panel coding-history">
+        <div class="panel-head"><span class="eyebrow">CODING HISTORY</span><span class="evidence-count">PERSONAL DEV JOURNAL</span></div>
+        <div class="coding-history-list">
+          {% for c in d.coding.recent %}
+          <div class="coding-entry">
+            <div class="coding-entry-main">
+              <div><strong>{{ c.problem }}</strong><span class="tag">{{ c.language }}</span>{% if c.independent %}<span class="tag tag-strength">INDEPENDENT</span>{% endif %}</div>
+              <span>{{ c.topic or 'Practice session' }} · {{ c.minutes }} min · {{ c.created_at[0:16].replace('T',' ') }}</span>
+              {% if c.notes %}<p>{{ c.notes }}</p>{% endif %}
+            </div>
+            {% if c.code %}<a class="mini-action download-action" href="{{ url_for('download_code', entry_id=c.id) }}" title="Download code">↓</a>{% endif %}
+          </div>
+          {% else %}<div class="empty-state">No coding sessions yet. Your first small practice belongs here.</div>{% endfor %}
+        </div>
+        <div class="coding-note"><b>Remember:</b> a log is self-reported progress. It tracks consistency even when an exercise is too small for GitHub; optional execution/testing can be added later.</div>
+      </article>
+    </div>
+  </section>
+
+  <section id="evidence-hub" class="evidence-section">
+    <div class="section-heading"><div><div class="eyebrow"><span class="slash">//</span> PROOF OF WORK</div><h2>Evidence hub</h2></div><span class="section-aside mono">REAL ACTIONS → REAL XP</span></div>
+    <div class="evidence-grid">
+      <article class="panel evidence-card"><div class="evidence-top"><span class="evidence-icon">◷</span><span class="evidence-type">STUDY SESSION</span></div><h3>Put in the hours.</h3><p>Log a focused session against a topic.</p>
+        <form method="post" action="{{ url_for('study_evidence') }}" class="form-stack"><label>Topic<input name="topic" placeholder="e.g. Java arrays" required maxlength="120"></label><label>Minutes<input type="number" name="minutes" min="5" max="600" placeholder="25" required></label><button class="secondary-btn full">Record study <span>↗</span></button></form>
+      </article>
+      <article class="panel evidence-card"><div class="evidence-top"><span class="evidence-icon">ϟ</span><span class="evidence-type">WORKOUT LOG</span></div><h3>Train your stats.</h3><p>Log the activity and duration.</p>
+        <form method="post" action="{{ url_for('workout_evidence') }}" class="form-stack"><label>Activity<input name="activity" placeholder="e.g. Push day / run" required maxlength="120"></label><label>Minutes<input type="number" name="minutes" min="1" max="600" placeholder="30" required></label><button class="secondary-btn full">Log workout <span>↗</span></button></form>
+      </article>
+      <article class="panel evidence-card"><div class="evidence-top"><span class="evidence-icon">◎</span><span class="evidence-type">QUIZ SCORE</span></div><h3>Test your knowledge.</h3><p>Score 70% or higher to clear a quiz quest.</p>
+        <form method="post" action="{{ url_for('quiz_evidence') }}" class="form-stack"><label>Topic<input name="topic" placeholder="e.g. DBMS basics" required maxlength="120"></label><div class="two-fields"><label>Score<input type="number" name="score" min="0" max="1000" placeholder="8" required></label><label>Out of<input type="number" name="total" min="1" max="1000" placeholder="10" required></label></div><button class="secondary-btn full">Submit score <span>↗</span></button></form>
+      </article>
+      <article class="panel evidence-card github-card"><div class="evidence-top"><span class="evidence-icon">⌘</span><span class="evidence-type">GITHUB ACTIVITY</span></div><h3>Ship something real.</h3><p>Check your recent public push events and use them as coding evidence.</p>
+        <form method="post" action="{{ url_for('github_sync') }}"><button class="primary-btn full">Sync GitHub evidence <span>↗</span></button></form><div class="tiny-note">Set your username in ⚙ Settings first. Sync checks recent public events; it won't award XP for the same event twice.</div>
+      </article>
+    </div>
+  </section>
+
+  <section class="history-section">
+    <div class="section-heading"><div><div class="eyebrow"><span class="slash">//</span> RECENT ACTIVITY</div><h2>Proof in the timeline</h2></div></div>
+    <div class="panel timeline">
+      {% for e in d.evidence %}
+      <div class="timeline-row"><div class="timeline-dot dot-{{ e.kind }}"></div><div class="timeline-main"><strong>{{ e.title }}</strong><span>{{ e.details or 'Evidence recorded' }}</span></div><div class="timeline-kind">{{ e.kind|upper }}</div><time>{{ e.created_at[5:16].replace('T',' ') }}</time></div>
+      {% else %}<div class="timeline-empty">Your timeline starts with your first action. Go make it count.</div>{% endfor %}
+    </div>
+  </section>
+
+  <footer><div class="brand footer-brand"><span class="brand-mark">R</span><span>REALITY<span class="brand-accent">RPG</span><small>BUILT BY ACTION, NOT INTENTION.</small></span></div><div class="footer-right">LOCAL-FIRST · <span>V 1.0.0</span></div></footer>
+</main>
+
+<div class="modal-backdrop" id="quest-modal" onclick="backdropClose(event,'quest-modal')"><div class="modal" role="dialog" aria-modal="true" aria-label="Create a quest"><button class="modal-close" type="button" aria-label="Close" onclick="closeModal('quest-modal')">×</button><div class="eyebrow">// ADD TO YOUR CAMPAIGN</div><h2>Create a quest</h2><p class="modal-copy">Give the action a name, an attribute, and a reward.</p>
+<form method="post" action="{{ url_for('add_quest') }}" class="form-stack">
+  <label>Quest name<input name="title" placeholder="e.g. Build a mini Java app" maxlength="120" required></label>
+  <div class="two-fields"><label>Attribute<select name="attribute"><option>Coding</option><option>Strength</option><option>Discipline</option><option>Knowledge</option><option>Mental Health</option><option>Self Building</option><option>Daily Chores</option></select></label><label>XP reward<input type="number" name="xp" min="1" max="1000" value="50" required></label></div>
+  <label>Custom attribute <span class="optional">(optional — type your own)</span><input name="custom_attribute" maxlength="40" placeholder="e.g. Communication, Finance, Creativity…"></label>
+  <label>Completion method<select name="evidence_type"><option value="manual">Manual quest</option><option value="study">Study session evidence</option><option value="coding">Coding / GitHub evidence</option><option value="workout">Workout evidence</option><option value="quiz">Quiz score evidence (70%+)</option></select></label>
+  <button class="primary-btn full">＋ Add quest</button>
+</form></div></div>
+
+<div class="modal-backdrop" id="settings-modal" onclick="backdropClose(event,'settings-modal')"><div class="modal" role="dialog" aria-modal="true" aria-label="Settings"><button class="modal-close" type="button" aria-label="Close" onclick="closeModal('settings-modal')">×</button><div class="eyebrow">// PLAYER CONFIGURATION</div><h2>Settings</h2><p class="modal-copy">Personalize your character and connect GitHub.</p>
+<form method="post" action="{{ url_for('settings') }}" class="form-stack" enctype="multipart/form-data">
+  <div class="account-email">Logged in as <strong>{{ d.settings.account_email }}</strong></div>
+  <label>Character name<input name="hero_name" maxlength="40" value="{{ d.settings.hero_name }}" placeholder="PLAYER ONE"></label>
+  <label>Player picture <span class="optional">(PNG, JPG, WEBP or GIF · max 2 MB)</span><input type="file" name="profile_photo" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+  {% if d.settings.profile_photo %}<div class="profile-photo-preview"><img src="{{ d.settings.profile_photo }}" alt="Current player picture"><span>Current player picture</span></div>{% endif %}
+  <label>GitHub username<input name="github_username" value="{{ d.settings.github_username }}" placeholder="your-username"></label>
+  <div class="tiny-note">GitHub authentication is configured securely with the <code>GITHUB_TOKEN</code> environment variable on Render. Your personal access token is not stored in the app database.</div>
+  <hr class="modal-rule"><div class="eyebrow">CHANGE LOGIN EMAIL / PASSWORD</div>
+  <label>New email address <span class="optional">(blank keeps current)</span><input type="email" name="new_email" placeholder="{{ d.settings.account_email }}" autocomplete="email"></label>
+  <label>Current password <span class="optional">(required for account changes)</span><input type="password" name="current_password" placeholder="Current password" autocomplete="current-password"></label>
+  <label>New password <span class="optional">(8+ characters; blank keeps current)</span><input type="password" name="new_password" minlength="8" placeholder="New password" autocomplete="new-password"></label>
+  <label>Confirm new password<input type="password" name="confirm_password" minlength="8" placeholder="Repeat new password" autocomplete="new-password"></label>
+  <button class="primary-btn full">Save settings</button>
+</form>
+<hr class="modal-rule"><form method="post" action="{{ url_for('reset_progress') }}" onsubmit="return confirm('This clears all XP and evidence. Type RESET in the next prompt to confirm.')"><input type="hidden" name="confirm" id="reset-confirm"><button type="button" class="danger-btn full" onclick="if(confirm('Really reset all progress?')){const x=prompt('Type RESET to confirm');if(x==='RESET'){document.getElementById('reset-confirm').value=x;this.form.submit()}}">Reset all progress</button></form>
+</div></div>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

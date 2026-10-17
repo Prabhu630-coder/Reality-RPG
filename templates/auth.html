@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#05051a"><meta name="color-scheme" content="dark">
+<title>{{ 'Create account' if mode == 'setup' else 'Login' }} — Reality RPG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"></head>
+<body class="auth-page"><main class="auth-shell">
+<a class="brand auth-brand" href="/"><span class="brand-mark">R</span><span>REALITY<span class="brand-accent">RPG</span><small>LEVEL UP IRL</small></span></a>
+<section class="auth-card"><div class="auth-symbol">✦</div>
+<div class="eyebrow">// {{ 'FIRST-TIME SETUP' if mode == 'setup' else 'PLAYER ACCESS' }}</div>
+<h1>{{ 'Create your account.' if mode == 'setup' else 'Welcome back, player.' }}</h1>
+<p class="auth-copy">{{ 'Pick an email and password to protect your campaign. It only takes a few seconds.' if mode == 'setup' else 'Sign in to pick up your campaign right where you left off.' }}</p>
+{% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}{% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}{% endif %}{% endwith %}
+<form method="post" class="form-stack auth-form">
+<label>Email address<input type="email" name="email" placeholder="you@example.com" autocomplete="email" required></label>
+<label>Password<input type="password" name="password" placeholder="At least 8 characters" minlength="8" autocomplete="{{ 'new-password' if mode == 'setup' else 'current-password' }}" required></label>
+{% if mode == 'setup' %}<label>Confirm password<input type="password" name="confirm_password" placeholder="Enter the same password" minlength="8" autocomplete="new-password" required></label>{% endif %}
+<button class="primary-btn full">{{ 'Create account' if mode == 'setup' else 'Login to Reality RPG' }} <span>↗</span></button>
+</form><div class="auth-foot">{{ 'Your password is stored as a secure hash, not plain text.' if mode == 'setup' else 'For this local starter, password recovery requires a manual database reset.' }}</div>
+</section><div class="auth-bottom mono">YOUR LIFE. YOUR QUESTLINE. YOUR PROGRESS.</div></main></body></html>
