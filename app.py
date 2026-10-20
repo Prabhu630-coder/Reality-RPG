@@ -355,17 +355,85 @@ def delete_quest(quest_id):
     flash("Uncompleted quest removed.", "success")
     return redirect(url_for("index"))
 
-def award_matching_quests(db, kind, title, details):
-    rows = execute(db, "SELECT * FROM quests WHERE completed=0 AND evidence_type=%s", (kind,)).fetchall()
-    awarded = []
+def award_matching_coding_quest(db, problem, topic, language, details):
+    """Complete the best related pending coding quest from a saved vault entry."""
+
+    rows = execute(
+        db,
+        "SELECT * FROM quests WHERE completed=0 AND evidence_type='coding' ORDER BY id ASC",
+    ).fetchall()
+
+    def tokens(text):
+        words = re.findall(r"[a-z0-9+#]+", (text or "").lower())
+
+        stop_words = {
+            "a", "an", "the", "to", "of", "and", "or", "for", "with",
+            "on", "in", "from", "my", "one", "do", "work", "complete",
+            "solve", "practice", "coding", "code", "program", "programming",
+            "task", "tasks", "problem", "problems", "session"
+        }
+
+        return {
+            word for word in words
+            if len(word) > 1 and word not in stop_words
+        }
+
+    practice_tokens = tokens(f"{problem} {topic} {language}")
+
+    best_quest = None
+    best_score = 0
+
+    for quest in rows:
+        quest_title = quest["title"] or ""
+        quest_tokens = tokens(quest_title)
+
+        overlap = practice_tokens & quest_tokens
+        score = len(overlap)
+
+        # Strong match when the programming language appears in the quest.
+        if language and language.lower() in quest_title.lower():
+            score += 3
+
+        # Topic match is stronger than a normal word match.
+        if topic and tokens(topic) & quest_tokens:
+            score += 2
+
+        # Exact problem-name match is very strong.
+        if problem and problem.lower() in quest_title.lower():
+            score += 4
+
+        if score > best_score:
+            best_score = score
+            best_quest = quest
+
     now = datetime.now().isoformat(timespec="seconds")
-    for q in rows:
-        # One evidence event completes one matching quest to avoid duplicate XP farming.
-        execute(db, "UPDATE quests SET completed=1, completed_at=%s WHERE id=%s", (now, q["id"]))
-        awarded.append({"title": q["title"], "xp": q["xp"]})
-        break
-    execute(db, "INSERT INTO evidence(kind,title,details,created_at) VALUES(%s,%s,%s,%s)",
-               (kind, title, details, now))
+    awarded = []
+
+    # Only award XP when the practice is actually related to a coding quest.
+    if best_quest is not None and best_score > 0:
+        execute(
+            db,
+            "UPDATE quests SET completed=1, completed_at=%s WHERE id=%s",
+            (now, best_quest["id"]),
+        )
+
+        awarded.append({
+            "title": best_quest["title"],
+            "xp": best_quest["xp"]
+        })
+
+    # Always keep the coding practice as evidence/history.
+    execute(
+        db,
+        "INSERT INTO evidence(kind,title,details,created_at) VALUES(%s,%s,%s,%s)",
+        (
+            "coding",
+            f"Coding practice: {problem}",
+            details,
+            now
+        ),
+    )
+
     return awarded
 
 @app.post("/evidence/study")
@@ -513,8 +581,14 @@ def coding_log():
                       VALUES(%s,%s,%s,%s,%s,%s,%s,%s)""",
                    (language, problem, topic, minutes, independent, code, notes,
                     datetime.now().isoformat(timespec="seconds")))
-        awarded = award_matching_quests(db, "coding", f"Coding practice: {problem}",
-                                        f"{language} · {minutes} minutes" + (" · solved independently" if independent else ""))
+    awarded = award_matching_coding_quest(
+    db,
+    problem,
+    topic,
+    language,
+    f"{language} · {minutes} minutes" +
+    (" · solved independently" if independent else "")
+)
         # Coding practice itself is the local proof record; award at most one coding quest.
     msg = f"{language} practice saved. "
     msg += f"Quest complete: +{awarded[0]['xp']} XP!" if awarded else "Your developer history was updated."
