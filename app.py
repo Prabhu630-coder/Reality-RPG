@@ -561,6 +561,7 @@ def delete_thought(thought_id):
     flash("Thought removed from your library.", "success")
     return redirect(url_for("index") + "#mindset")
 
+~
 @app.post("/coding/log")
 def coding_log():
     language = request.form.get("language", "").strip()[:40]
@@ -568,30 +569,50 @@ def coding_log():
     topic = request.form.get("topic", "").strip()[:100]
     notes = request.form.get("notes", "").strip()[:1000]
     code = request.form.get("code", "")
+
     try:
         minutes = int(request.form.get("minutes", "0"))
     except ValueError:
         minutes = 0
+
     independent = 1 if request.form.get("independent") == "on" else 0
+
     if not language or not problem or minutes < 0 or minutes > 1440:
         flash("Add a language, problem name, and valid practice time.", "error")
         return redirect(url_for("index") + "#coding-hub")
+
+    details = (
+        f"{language} · {minutes} minutes"
+        + (" · solved independently" if independent else "")
+    )
+
     with connect() as db:
-        execute(db, """INSERT INTO coding_practice(language,problem,topic,minutes,independent,code,notes,created_at)
-                      VALUES(%s,%s,%s,%s,%s,%s,%s,%s)""",
-                   (language, problem, topic, minutes, independent, code, notes,
-                    datetime.now().isoformat(timespec="seconds")))
-    awarded = award_matching_coding_quest(
-    db,
-    problem,
-    topic,
-    language,
-    f"{language} · {minutes} minutes" +
-    (" · solved independently" if independent else "")
-)
-        # Coding practice itself is the local proof record; award at most one coding quest.
+        execute(
+            db,
+            """INSERT INTO coding_practice
+               (language, problem, topic, minutes, independent, code, notes, created_at)
+               VALUES(%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (
+                language, problem, topic, minutes, independent, code, notes,
+                datetime.now().isoformat(timespec="seconds")
+            )
+        )
+
+        awarded = award_matching_coding_quest(
+            db,
+            problem,
+            topic,
+            language,
+            details
+        )
+
     msg = f"{language} practice saved. "
-    msg += f"Quest complete: +{awarded[0]['xp']} XP!" if awarded else "Your developer history was updated."
+    msg += (
+        f"Quest complete: +{awarded[0]['xp']} XP!"
+        if awarded
+        else "Your developer history was updated."
+    )
+
     flash(msg, "success")
     return redirect(url_for("index") + "#coding-hub")
 
