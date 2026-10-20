@@ -321,53 +321,84 @@ def get_dashboard():
         settings = {r["key"]: r["value"] for r in execute(db, "SELECT * FROM settings")}
         account = execute(db, "SELECT email FROM users WHERE id=%s", (session.get("user_id"),)).fetchone()
         settings["account_email"] = account["email"] if account else ""
-all_completed = execute(
-    db, "SELECT * FROM quests WHERE completed=1"
-).fetchall()
 
-archived_xp = execute(
-    db, "SELECT COALESCE(SUM(xp), 0) FROM xp_history"
-).fetchone()[0]
+    all_completed = execute(
+            db, "SELECT * FROM quests WHERE completed=1"
+        ).fetchall()
 
-total_xp = archived_xp + sum(q["xp"] for q in all_completed)
-attrs = {name: 0 for name in ATTRIBUTES}
+    archived_xp = execute(
+            db, "SELECT COALESCE(SUM(xp), 0) FROM xp_history"
+        ).fetchone()[0]
 
-archived_attrs = execute(
-    db,
-    "SELECT attribute, SUM(xp) AS total FROM xp_history GROUP BY attribute"
-).fetchall()
+    total_xp = archived_xp + sum(q["xp"] for q in all_completed)
+    attrs = {name: 0 for name in ATTRIBUTES}
 
-for row in archived_attrs:
-    attrs[row["attribute"]] = attrs.get(row["attribute"], 0) + row["total"]
+    archived_attrs = execute(
+            db,
+            "SELECT attribute, SUM(xp) AS total FROM xp_history GROUP BY attribute"
+        ).fetchall()
 
-for q in all_completed:
-    attrs[q["attribute"]] = attrs.get(q["attribute"], 0) + q["xp"]
+    for row in archived_attrs:
+            attrs[row["attribute"]] = attrs.get(row["attribute"], 0) + row["total"]
+
+    for q in all_completed:
+            attrs[q["attribute"]] = attrs.get(q["attribute"], 0) + q["xp"]
 
         # Each attribute point is earned XP scaled to keep bars readable.
-        attr_scores = {k: min(100, int(v / 5)) for k, v in attrs.items()}
-        level, remaining = 1, total_xp
-        while remaining >= xp_for_next_level(level):
+    attr_scores = {k: min(100, int(v / 5)) for k, v in attrs.items()}
+    level, remaining = 1, total_xp
+
+    while remaining >= xp_for_next_level(level):
             remaining -= xp_for_next_level(level)
             level += 1
-        need = xp_for_next_level(level)
-        progress = int((remaining / need) * 100) if need else 0
-        today = date.today().isoformat()
-        completed_today = execute(db, 
-            "SELECT COUNT(*) FROM quests WHERE completed=1 AND substr(completed_at,1,10)=%s", (today,)
+
+    need = xp_for_next_level(level)
+    progress = int((remaining / need) * 100) if need else 0
+    today = date.today().isoformat()
+
+    completed_today = execute(
+            db,
+            "SELECT COUNT(*) FROM quests WHERE completed=1 AND substr(completed_at,1,10)=%s",
+            (today,)
         ).fetchone()[0]
-        evidence_count = execute(db, "SELECT COUNT(*) FROM evidence").fetchone()[0]
-        coding_total = execute(db, "SELECT COUNT(*) FROM coding_practice").fetchone()[0]
-        coding_minutes = execute(db, "SELECT COALESCE(SUM(minutes),0) FROM coding_practice").fetchone()[0]
-        coding_languages = execute(db, "SELECT COUNT(DISTINCT language) FROM coding_practice").fetchone()[0]
-        coding_week = execute(db, 
+
+    evidence_count = execute(
+            db, "SELECT COUNT(*) FROM evidence"
+        ).fetchone()[0]
+
+    coding_total = execute(
+            db, "SELECT COUNT(*) FROM coding_practice"
+        ).fetchone()[0]
+
+    coding_minutes = execute(
+            db, "SELECT COALESCE(SUM(minutes),0) FROM coding_practice"
+        ).fetchone()[0]
+
+    coding_languages = execute(
+            db, "SELECT COUNT(DISTINCT language) FROM coding_practice"
+        ).fetchone()[0]
+
+    coding_week = execute(
+            db,
             "SELECT COUNT(*) FROM coding_practice WHERE created_at >= %s",
             ((datetime.now() - timedelta(days=7)).isoformat(timespec="seconds"),)
         ).fetchone()[0]
-        thought = get_daily_thought(db)
-        recent_coding = execute(db, "SELECT * FROM coding_practice ORDER BY id DESC LIMIT 8").fetchall()
-        favorites = execute(db, "SELECT * FROM thoughts WHERE is_favorite=1 ORDER BY id DESC").fetchall()
-        all_thoughts = execute(db, "SELECT * FROM thoughts ORDER BY id DESC").fetchall()
-        return {
+
+    thought = get_daily_thought(db)
+
+    recent_coding = execute(
+            db, "SELECT * FROM coding_practice ORDER BY id DESC LIMIT 8"
+        ).fetchall()
+
+    favorites = execute(
+            db, "SELECT * FROM thoughts WHERE is_favorite=1 ORDER BY id DESC"
+        ).fetchall()
+
+    all_thoughts = execute(
+            db, "SELECT * FROM thoughts ORDER BY id DESC"
+        ).fetchall()
+
+    return {
             "quests": quests, "evidence": evidence, "settings": settings,
             "total_xp": total_xp, "level": level, "progress": progress,
             "xp_into_level": remaining, "xp_needed": need,
