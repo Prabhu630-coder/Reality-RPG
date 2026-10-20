@@ -561,7 +561,7 @@ def delete_thought(thought_id):
     flash("Thought removed from your library.", "success")
     return redirect(url_for("index") + "#mindset")
 
-~
+
 @app.post("/coding/log")
 def coding_log():
     language = request.form.get("language", "").strip()[:40]
